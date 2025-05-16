@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Incubator Live Feed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
+        .grid-item {
+            width: 100%;
+        }
+        img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        #timestamp {
+            font-size: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Incubator Live Feed</h1>
+    <div class="grid-container">
+        <div class="grid-item">
+            <img src="http://192.168.2.43:5000/camera1" alt="Pi 1 Camera 1 Feed">
+        </div>
+        <div class="grid-item">
+            <img src="http://192.168.2.43:5000/camera2" alt="Pi 1 Camera 2 Feed">
+        </div>
+        <div class="grid-item">
+            <img src="http://192.168.2.103:5000/camera1" alt="Pi 2 Camera 1 Feed">
+        </div>
+        <div class="grid-item">
+            <img src="http://192.168.2.103:5000/camera2" alt="Pi 2 Camera 2 Feed">
+        </div>
+    </div>
+    <div id="timestamp"></div>
+
+    <script defer>
+        function updateTimestamp() {
+            const now = new Date();
+            const timestamp = now.toLocaleString();
+            document.getElementById("timestamp").textContent = `Last updated: ${timestamp}`;
+        }
+        updateTimestamp();
+        setInterval(updateTimestamp, 1000);
+    </script>
+</body>
+</html>

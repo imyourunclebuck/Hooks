@@ -1,0 +1,4 @@
+mkdir test-html-scripts
+cd test-html-scripts
+npm create vite@latest . -- --template vanilla-ts
+cd ..

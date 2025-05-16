@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Incubator Live Feed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
+        .grid-item {
+            position: relative;
+        }
+        img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #timestamp {
+            font-size: 18px;
+            text-align: center;
+            margin-top: 10px;
+        }
+        button {
+            margin: 5px;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Incubator Live Feed</h1>
+    <div class="grid-container" id="cameraGrid">
+        <div class="grid-item">
+            <img id="cam1" src="http://192.168.2.43:5000/camera1" alt="Pi 1 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam1')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam2" src="http://192.168.2.43:5000/camera2" alt="Pi 1 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam2')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam3" src="http://192.168.2.158:5000/camera1" alt="Pi 2 Camera 1 Feed" onerror="console.log('Error loading image for cam3');">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam3')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam4" src="http://192.168.2.158:5000/camera2" alt="Pi 2 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam4')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam5" src="http://192.168.2.168:5000/camera1" alt="Pi 3 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam5')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam6" src="http://192.168.2.168:5000/camera2" alt="Pi 3 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam6')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam7" src="http://192.168.1.118:5000/camera1" alt="Pi 4 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam7')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam8" src="http://192.168.1.118:5000/camera2" alt="Pi 4 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam8')">Snapshot</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <label for="captureTime">Auto-capture at (HH:MM):</label>
+        <input type="time" id="captureTime">
+        <select id="cameraSelect">
+            <option value="cam1">Camera 1</option>
+            <option value="cam2">Camera 2</option>
+            <option value="cam3">Camera 3</option>
+            <option value="cam4">Camera 4</option>
+            <option value="cam5">Camera 5</option>
+            <option value="cam6">Camera 6</option>
+            <option value="cam7">Camera 7</option>
+            <option value="cam8">Camera 8</option>
+        </select>
+        <button onclick="scheduleSnapshot()">Schedule</button>
+    </div>
+
+    <div id="timestamp"></div>
+
+    <canvas id="snapshotCanvas" style="display:none;"></canvas>
+
+    <script defer>
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById("timestamp").textContent = `Current Time: ${now.toLocaleString()}`;
+        }
+        setInterval(updateTimestamp, 1000);
+        updateTimestamp();
+
+        function takeSnapshot(camId) {
+            const img = document.getElementById(camId);
+            const canvas = document.getElementById("snapshotCanvas");
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            const link = document.createElement("a");
+            link.download = `${camId}_snapshot_${Date.now()}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        }
+
+        function scheduleSnapshot() {
+            const inputTime = document.getElementById("captureTime").value;
+            const camId = document.getElementById("cameraSelect").value;
+            if (!inputTime) return alert("Please set a time.");
+
+            const [hour, minute] = inputTime.split(":").map(Number);
+
+            const now = new Date();
+            const target = new Date();
+            target.setHours(hour, minute, 0, 0);
+
+            if (target <= now) target.setDate(now.getDate() + 1);
+
+            const delay = target - now;
+
+            alert(`Snapshot scheduled for ${target.toLocaleTimeString()} on ${camId}`);
+            setTimeout(() => {
+                takeSnapshot(camId);
+            }, delay);
+        }
+    </script>
+</body>
+</html>

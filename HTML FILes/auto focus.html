@@ -1,0 +1,57 @@
+<html>
+<head>
+    <title>Multi-Camera Live Feed</title>
+    <script>
+        function setAutofocus(cameraIP, state) {
+            fetch(`http://${cameraIP}:5000/autofocus?state=${state}`)
+                .then(response => {
+                    if (!response.ok) {
+                        console.error(`Failed to set autofocus to ${state} on ${cameraIP}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error setting autofocus: ${error}`);
+                });
+        }
+
+        window.onload = function() {
+            const autofocusCameras = [
+                { ip: '192.168.2.43' },
+                { ip: '192.168.2.103' }
+            ];
+
+            autofocusCameras.forEach(cam => {
+                setAutofocus(cam.ip, 'on');
+            });
+        };
+    </script>
+</head>
+<body>
+    <div class="grid-container">
+        <div class="grid-item">
+            <img id="cam1" src="http://192.168.2.43:5000/camera1" alt="Camera 1">
+            <div class="camera-label">Camera 1 (192.168.2.43)</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.43', 'on')">AF On</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.43', 'off')">AF Off</div>
+        </div>
+        <div class="grid-item">
+            <img id="cam2" src="http://192.168.2.43:5000/camera2" alt="Camera 2">
+            <div class="camera-label">Camera 2 (192.168.2.43)</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.43', 'on')">AF On</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.43', 'off')">AF Off</div>
+        </div>
+        <div class="grid-item">
+            <img id="cam3" src="http://192.168.2.103:5000/camera1" alt="Camera 3">
+            <div class="camera-label">Camera 3 (192.168.2.103)</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.103', 'on')">AF On</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.103', 'off')">AF Off</div>
+        </div>
+        <div class="grid-item">
+            <img id="cam4" src="http://192.168.2.103:5000/camera2" alt="Camera 4">
+            <div class="camera-label">Camera 4 (192.168.2.103)</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.103', 'on')">AF On</div>
+            <div class="control-button" onclick="setAutofocus('192.168.2.103', 'off')">AF Off</div>
+        </div>
+    </div>
+</body>
+</html>
