@@ -1,0 +1,60 @@
+<html>
+<head>
+    <title>Multi-Camera Live Feed</title>
+    <script>
+        // ... (existing JavaScript functions) ...
+
+        function setAutofocus(cameraIP, state) {
+            fetch(`http://${cameraIP}:5000/autofocus?state=${state}`)
+                .then(response => {
+                    if (!response.ok) {
+                        console.error(`Failed to set autofocus to ${state} on ${cameraIP}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error setting autofocus: ${error}`);
+                });
+        }
+
+        function startContinuousAutofocus(cameraIP) {
+            // Send 'on' command repeatedly to simulate continuous autofocus
+            setInterval(() => {
+                setAutofocus(cameraIP, 'on');
+            }, 1000); // Adjust interval as needed (e.g., every 1 second)
+        }
+
+        function stopContinuousAutofocus(cameraIP) {
+            // Send 'off' command to stop autofocus
+            setAutofocus(cameraIP, 'off');
+        }
+    </script>
+</head>
+<body>
+    <div class="grid-container">
+        <div class="grid-item">
+            <img id="cam1" src="http://192.168.2.43:5000/camera1" alt="Camera 1">
+            <div class="camera-label">Camera 1 (192.168.2.43)</div>
+            <div class="control-button" onclick="startContinuousAutofocus('192.168.2.43')">AF Continuous On</div>
+            <div class="control-button" onclick="stopContinuousAutofocus('192.168.2.43')">AF Off</div>
+        </div>
+        <div class="grid-item">
+            <img id="cam2" src="http://192.168.2.43:5000/camera2" alt="Camera 2">
+            <div class="camera-label">Camera 2 (192.168.2.43)</div>
+            <div class="control-button" onclick="startContinuousAutofocus('192.168.2.43')">AF Continuous On</div>
+            <div class="control-button" onclick="stopContinuousAutofocus('192.168.2.43')">AF Off</div>
+        </div>
+        <div class="grid-item">
+            <img id="cam3" src="http://192.168.2.103:5000/camera1" alt="Camera 3">
+            <div class="camera-label">Camera 3 (192.168.2.103)</div>
+            <div class="control-button" onclick="startContinuousAutofocus('192.168.2.103')">AF Continuous On</div>
+            <div class="control-button" onclick="stopContinuousAutofocus('192.168.2.103')">AF Off</div>
+        </div>
+        <div class="grid-item">
+            <img id="cam4" src="http://192.168.2.103:5000/camera2" alt="Camera 4">
+            <div class="camera-label">Camera 4 (192.168.2.103)</div>
+            <div class="control-button" onclick="startContinuousAutofocus('192.168.2.103')">AF Continuous On</div>
+            <div class="control-button" onclick="stopContinuousAutofocus('192.168.2.103')">AF Off</div>
+        </div>
+    </div>
+</body>
+</html>
