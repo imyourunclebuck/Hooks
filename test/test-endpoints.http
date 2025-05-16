@@ -1,0 +1,28 @@
+### Send create user event
+POST http://localhost:3000/webhook
+Content-Type: application/json
+
+{
+    "event": "create_user",
+    "data": {
+        "name": "Alice Johnson",
+        "email": "alice@example.com",
+        "role": "user"
+    }
+}
+
+### Send status update event
+POST http://localhost:3000/webhook
+Content-Type: application/json
+
+{
+    "event": "update_status",
+    "data": {
+        "userId": 2,
+        "status": "inactive",
+        "lastLogin": "2025-02-09T12:00:00Z"
+    }
+}
+
+### Get all stored data
+GET http://localhost:3000/data
