@@ -1,4 +1,6 @@
-<<<<<<< HEAD
+Incubator monitoring project.
+
+
 # Raspberry Pi Camera System Documentation
 
 ## System Overview
