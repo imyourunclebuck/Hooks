@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Incubator_1_Myrle</title>
+    <style>
+        .grid-container {
+            display: grid;
+            grid-template-columns: auto auto auto; /* 3 columns */
+            gap: 10px;
+            padding: 10px;
+        }
+        .grid-item {
+            width: 640px;
+            height: 480px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+        }
+		img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* This will make the image fill the container without distorting the aspect ratio */
+        }
+        .controls {
+            text-align: center;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Incubator_1_Myrle</h1>
+    <div class="grid-container" id="cameraGrid">
+        <div class="grid-item">
+            <img id="cam1" src="http://192.168.2.43:5000/camera1" alt="Pi 1 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam1')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam2" src="http://192.168.2.43:5000/camera2" alt="Pi 1 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam2')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam3" src="http://192.168.2.158:5000/camera1" alt="Pi 2 Camera 1 Feed" onerror="console.log('Error loading image for cam3');">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam3')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam4" src="http://192.168.2.158:5000/camera2" alt="Pi 2 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam4')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam5" src="http://192.168.2.168:5000/camera1" alt="Pi 3 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam5')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam6" src="http://192.168.2.168:5000/camera2" alt="Pi 3 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam6')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam7" src="http://192.168.1.118:5000/camera1" alt="Pi 4 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam7')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam8" src="http://192.168.1.118:5000/camera2" alt="Pi 4 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam8')">Snapshot</button>
+            </div>
+		</div>
+    </div>
+	<script>
+		function takeSnapshot(camId) {
+			const imgElement = document.getElementById(camId);
+			const imgSrc = imgElement.src;
+
+			// Create a temporary canvas to draw the image on
+			const canvas = document.createElement('canvas');
+			canvas.width = imgElement.width;
+			canvas.height = imgElement.height;
+			const ctx = canvas.getContext('2d');
+			ctx.drawImage(imgElement, 0, 0, imgElement.width, imgElement.height);
+
+			// Convert the canvas content to a data URL
+			const dataURL = canvas.toDataURL('image/png');
+
+			// Create a temporary link element to trigger the download
+			const a = document.createElement('a');
+			a.href = dataURL;
+			a.download = camId + '_snapshot.png'; // Set the filename for the downloaded image
+			a.style.display = 'none'; // Hide the link element
+
+			// Add the link to the document, trigger the download, and remove the link
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+		}
+	</script>
+</body>
+</html>
