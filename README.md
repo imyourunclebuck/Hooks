@@ -1,5 +1,17 @@
 Incubator monitoring project.
+Camera’s reset to default settings when switching between picamera2, lib camera and other UIs.
 
+I’m working on a project that involves 6 pi5s that each stream 2 CSI cameras ( 1 camera module 3 NoIR Wide and one camera module 3 Noir) 
+
+The purpose of this project is to capture photos at exact times dictated by the incubation periods of given samples, while also providing a live feed from inside an incubator to help maintain a steady environment.
+
+Initially, I used libcamera, running two terminal windows to provide a live feed. An automation process would then take screenshots and save the photos. This method of streaming worked, but it wasn’t ideal—it generated heat and significantly slowed down the Raspberry Pi 5. It was also cumbersome to stream from three incubators on one screen, as it required logging into Pi Connect and opening three separate browser windows.
+
+I then switched to Picamera2, streaming on port 5000. I created a basic HTML page with the IP addresses of all three Pis, which allowed me to stream to a browser on a fourth Pi connected to the display inside the lab. This setup works, but lacks camera controls. The settings revert to default—even when adjustments are made. For instance, using libcamera shows different settings than what is used during streaming. I attempted to include an autofocus command in the HTML, but it doesn’t appear to function correctly.
+
+I also tested another GUI (I can’t recall the repository name) that runs on port 8080. It allows adjustments via an interface, but those settings revert when switching to another method. Additionally, while it works, the streams cannot be merged into a single page like with the previous method, so displaying all six cameras live on one screen is not possible
+
+  Can anyone recommend a method to locally host these cameras live, with the ability to tailor the html to feature a snapshot button, as well as a timer for future snapshots and other tasks. But mostly importantly retain the setting for the cameras(autofocus, etc)?
 
 # Raspberry Pi Camera System Documentation
 
