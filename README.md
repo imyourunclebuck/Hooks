@@ -1,6 +1,8 @@
 Incubator monitoring project.
 Camera’s reset to default settings when switching between picamera2, lib camera and other UIs.
 
+    Using rpicam instead of libcamera now. Aug 4 2025
+
 I’m working on a project that involves 6 pi5s that each stream 2 CSI cameras ( 1 camera module 3 NoIR Wide and one camera module 3 Noir) 
 
 The purpose of this project is to capture photos at exact times dictated by the incubation periods of given samples, while also providing a live feed from inside an incubator to help maintain a steady environment.
