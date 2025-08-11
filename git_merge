@@ -1,1 +1,2 @@
-https://github.com/imyourunclebuck/martech_incubator
+cd Hooks
+git checkout -b merge-repos
