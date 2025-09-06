@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Incubator Live Feed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
+        .grid-item {
+            position: relative;
+        }
+        img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #timestamp {
+            font-size: 18px;
+            text-align: center;
+            margin-top: 10px;
+        }
+        button {
+            margin: 5px;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Incubator Live Feed</h1>
+    <div class="grid-container" id="cameraGrid">
+        <div class="grid-item">
+            <img id="cam1" src="http://192.168.2.43:5000/camera1" alt="Pi 1 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam1')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam2" src="http://192.168.2.43:5000/camera2" alt="Pi 1 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam2')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam3" src="http://192.168.2.158:5000/camera1" alt="Pi 2 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam3')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam4" src="http://192.168.2.158:5000/camera2" alt="Pi 2 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam4')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam5" src="http://192.168.2.168:5000/ead1" alt="Pi 3 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam5')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam6" src="http://192.168.2.168:5000/camera2" alt="Pi 3 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam6')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam7" src="http://192.168.2.162:5000/camera1" alt="Pi 4 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam7')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam8" src="http://192.168.2.162:5000/camera2" alt="Pi 4 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam8')">Snapshot</button>
+            </div>
+        </div>
+        <!-- New cameras for 192.168.2.194 -->
+        <div class="grid-item">
+            <img id="cam9" src="http://192.168.2.176:5000/camera1" alt="Pi 5 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam9')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam10" src="http://192.168.2.176:5000/camera2" alt="Pi 5 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam10')">Snapshot</button>
+            </div>
+        </div>
+        <!-- New cameras for 192.168.2.135 -->
+        <div class="grid-item">
+            <img id="cam11" src="http://192.168.2.135:5000/camera1" alt="Pi 6 Camera 1 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam11')">Snapshot</button>
+            </div>
+        </div>
+        <div class="grid-item">
+            <img id="cam12" src="http://192.168.2.135:5000/camera2" alt="Pi 6 Camera 2 Feed">
+            <div class="controls">
+                <button onclick="takeSnapshot('cam12')">Snapshot</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <label for="captureTime">Auto-capture at (HH:MM):</label>
+        <input type="time" id="captureTime">
+        <select id="cameraSelect">
+            <option value="cam1">Camera 1 (192.168.2.43:5000/camera1)</option>
+            <option value="cam2">Camera 2 (192.168.2.43:5000/camera2)</option>
+            <option value="cam3">Camera 3 (192.168.2.158:5000/camera1)</option>
+            <option value="cam4">Camera 4 (192.168.2.158:5000/camera2)</option>
+            <option value="cam5">Camera 5 (192.168.2.168:5000/camera1)</option>
+            <option value="cam6">Camera 6 (192.168.2.168:5000/camera2)</option>
+            <option value="cam7">Camera 7 (192.168.2.162:5000/camera1)</option>
+            <option value="cam8">Camera 8 (192.168.2.162:5000/camera2)</option>
+            <option value="cam9">Camera 9 (192.168.2.176:5000/camera1)</option>
+            <option value="cam10">Camera 10 (192.168.2.176:5000/camera2)</option>
+            <option value="cam11">Camera 11 (192.168.2.135:5000/camera1)</option>
+            <option value="cam12">Camera 12 (192.168.2.135:5000/camera2)</option>
+        </select>
+        <button onclick="scheduleSnapshot()">Schedule</button>
+    </div>
+
+    <div id="timestamp"></div>
+
+    <canvas id="snapshotCanvas" style="display:none;"></canvas>
+
+    <script defer>
+        // Cache DOM lookups once
+        const timestampElem = document.getElementById("timestamp");
+        const canvas = document.getElementById("snapshotCanvas");
+        const cameraSelect = document.getElementById("cameraSelect");
+        const captureTimeInput = document.getElementById("captureTime");
+
+        // Use requestAnimationFrame for timestamp update for better timing accuracy
+        function updateTimestamp() {
+            const now = new Date();
+            timestampElem.textContent = `Current Time: ${now.toLocaleString()}`;
+            window.requestAnimationFrame(updateTimestamp);
+        }
+        updateTimestamp();
+
+        // Reuse a single anchor for downloads
+        const downloadLink = document.createElement("a");
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+
+        function takeSnapshot(camId) {
+            const img = document.getElementById(camId);
+            if (!img) return alert("Camera not found.");
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+            }
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+
+            downloadLink.download = `${camId}_snapshot_${Date.now()}.png`;
+            downloadLink.href = canvas.toDataURL("image/png");
+            downloadLink.click();
+        }
+
+        function scheduleSnapshot() {
+            const inputTime = captureTimeInput.value;
+            const camId = cameraSelect.value;
+            if (!inputTime) return alert("Please set a time.");
+
+            const [hour, minute] = inputTime.split(":").map(Number);
+            const now = new Date();
+            const target = new Date();
+            target.setHours(hour, minute, 0, 0);
+            if (target <= now) target.setDate(now.getDate() + 1);
+
+            const delay = target - now;
+            alert(`Snapshot scheduled for ${target.toLocaleTimeString()} on ${camId}`);
+            setTimeout(() => takeSnapshot(camId), delay);
+        }
+    </script>
+</body>
+</html>
+            }, delay);
+        }
+    </script>
+</body>
+</html>
