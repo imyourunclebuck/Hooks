@@ -1,0 +1,102 @@
+#this is setup already with my gmail. You must install rclone before use. 
+
+import os
+import time
+import subprocess
+import smtplib
+from email.message import EmailMessage
+from picamera2 import Picamera2
+
+# Email credentials
+SENDER = "hodgkinsaaron@gmail.com"
+APP_PASSWORD = "ukze kdgg rmbe krbg"
+RECIPIENT = "aaron@martechresearch.com"
+
+def send_email(subject, body, attachments=[]):
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SENDER
+    msg["To"] = RECIPIENT
+    msg.set_content(body)
+    for filepath in attachments:
+        if not os.path.exists(filepath):
+            print(f"Warning: attachment {filepath} not found.")
+            continue
+        with open(filepath, "rb") as f:
+            data = f.read()
+            filename = os.path.basename(filepath)
+            maintype, subtype = ("image", "jpeg") if filename.lower().endswith(".jpg") else ("application", "octet-stream")
+            msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(SENDER, APP_PASSWORD)
+            smtp.send_message(msg)
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+def main():
+    base_path = "/home/pi5/Desktop"
+    folder_name = input("Enter folder name for this timelapse (and Drive folder): ").strip()
+    interval = float(input("Enter snapshot interval in seconds (e.g., 2): ").strip())
+    duration = float(input("Enter total duration in seconds (e.g., 10): ").strip())
+
+    output_dir = os.path.join(base_path, folder_name)
+    os.makedirs(output_dir, exist_ok=True)
+
+    picam2 = Picamera2()
+    config = picam2.create_still_configuration(main={"size": picam2.sensor_resolution})
+    picam2.configure(config)
+    picam2.start()
+    time.sleep(2)  # let camera warm up
+
+    num_snapshots = int(duration // interval)
+    print(f"Capturing {num_snapshots} images every {interval}s...")
+
+    captured_files = []
+    start_time = time.time()
+    for i in range(1, num_snapshots + 1):
+        filename = os.path.join(output_dir, f"image_{i:03}.jpg")
+        request = picam2.capture_request()
+        request.save("main", filename)
+        request.release()
+        print(f"Captured image {i} at {time.time() - start_time:.2f}s")
+        captured_files.append(filename)
+        if i < num_snapshots:
+            time.sleep(interval)
+
+    picam2.stop()
+
+    # Upload to Google Drive via rclone; ensure rclone remote is named 'gdrive' and folder is 'timelapse_uploads'
+    drive_folder = f"timelapse_uploads/{folder_name}"
+    print(f"Uploading folder {output_dir} to Google Drive at {drive_folder} ...")
+    subprocess.run(["rclone", "copy", output_dir, f"gdrive:{drive_folder}"], check=True)
+
+    # Prepare Drive URL link (adjust if your drive folder id or structure differs)
+    drive_link = f"https://drive.google.com/drive/folders/{folder_name}"
+
+    # Send email with first & last images attached + drive link in body
+    attachments = []
+    if captured_files:
+        attachments.append(captured_files[0])
+        if len(captured_files) > 1:
+            attachments.append(captured_files[-1])
+
+    email_body = (
+        f"Timelapse '{folder_name}' completed and uploaded to Google Drive.\n\n"
+        f"View folder here: https://drive.google.com/drive/folders/{folder_name}\n\n"
+        f"Captured {len(captured_files)} images every {interval}s for {duration}s.\n"
+        f"Folder path on Pi: {output_dir}"
+    )
+
+    send_email(f"Timelapse '{folder_name}' completed", email_body, attachments)
+
+if __name__ == '__main__':
+    main()
+EOF
+
+#Usage after install:
+
+#Just run this anywhere by typing:
+
+#email_timelapse
