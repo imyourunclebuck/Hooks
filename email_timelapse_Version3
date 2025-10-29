@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+
+import os
+import time
+import subprocess
+import smtplib
+from email.message import EmailMessage
+from datetime import datetime
+from picamera2 import Picamera2
+
+SENDER = "hodgkinsaaron@gmail.com"
+APP_PASSWORD = "ukze kdgg rmbe krbg"
+RECIPIENT = "aaron@martechresearch.com"
+
+def install_rclone():
+    try:
+        subprocess.run(["rclone", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("rclone is already installed.")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("rclone not found. Installing rclone for Raspberry Pi...")
+        subprocess.run("curl -Of https://downloads.rclone.org/rclone-current-linux-arm64.deb", shell=True, check=True)
+        subprocess.run("sudo dpkg -i rclone-current-linux-arm64.deb", shell=True, check=True)
+        subprocess.run("rm rclone-current-linux-arm64.deb", shell=True)
+        print("rclone installed successfully.")
+
+def configure_rclone():
+    try:
+        remotes = subprocess.check_output(["rclone", "listremotes"]).decode().splitlines()
+    except Exception:
+        remotes = []
+    if "gdrive:" in remotes or "gdrive" in remotes:
+        print("rclone 'gdrive' remote already configured.")
+        return
+
+    print("\n--- rclone Google Drive setup ---")
+    print("No 'gdrive' remote found. Starting rclone config wizard.")
+    print("You will need to follow the prompts. For Google Drive, select 'drive' as the storage type.")
+    print("When prompted for client_id and client_secret, you can usually just press Enter.")
+    print("Name your remote: gdrive")
+    print("For scope, select full access (read/write).")
+    print("Follow the browser authorization steps as prompted.")
+    print("You only need to do this once.\n")
+    input("Press Enter to launch 'rclone config'... (in a new terminal window if using a desktop GUI)")
+    subprocess.run("rclone config", shell=True)
+    print("rclone configuration finished. Your Google Drive should now be accessible as 'gdrive:'.")
+
+def send_email(subject, body, attachments=[]):
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SENDER
+    msg["To"] = RECIPIENT
+    msg.set_content(body)
+    for filepath in attachments:
+        if not os.path.exists(filepath):
+            print(f"Warning: attachment {filepath} not found.")
+            continue
+        with open(filepath, "rb") as f:
+            data = f.read()
+            filename = os.path.basename(filepath)
+            maintype, subtype = ("image", "jpeg") if filename.lower().endswith(".jpg") else ("application", "octet-stream")
+            msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(SENDER, APP_PASSWORD)
+            smtp.send_message(msg)
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+def get_next_session_folder(base_path):
+    today = datetime.now().strftime("%Y-%m-%d")
+    existing = []
+    if os.path.exists(base_path):
+        for name in os.listdir(base_path):
+            if name.endswith("_" + today) and name[:3].isdigit():
+                existing.append(int(name[:3]))
+    next_num = max(existing) + 1 if existing else 1
+    folder_name = f"{next_num:03d}_{today}"
+    return os.path.join(base_path, folder_name), folder_name
+
+def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_path = script_dir
+
+    install_rclone()
+    configure_rclone()
+
+    # UPDATED PROMPTS
+    interval_minutes = float(input("Enter snapshot interval in minutes (e.g., 2): ").strip())
+    duration_hours = float(input("Enter total duration in hours (e.g., 1.5): ").strip())
+    interval = interval_minutes * 60
+    duration = duration_hours * 3600
+
+    output_dir, folder_name = get_next_session_folder(base_path)
+    os.makedirs(output_dir, exist_ok=True)
+
+    print("Setting up cameras...")
+    cam1 = Picamera2(0)
+    cam2 = Picamera2(1)
+    config1 = cam1.create_still_configuration(main={"size": cam1.sensor_resolution})
+    config2 = cam2.create_still_configuration(main={"size": cam2.sensor_resolution})
+    cam1.configure(config1)
+    cam2.configure(config2)
+    cam1.start()
+    cam2.start()
+    time.sleep(2)
+
+    num_snapshots = int(duration // interval)
+    print(f"Capturing {num_snapshots} images from both cameras every {interval_minutes} minutes...")
+
+    captured_files = []
+    start_time = time.time()
+    for i in range(1, num_snapshots + 1):
+        fname1 = os.path.join(output_dir, f"cam1_image_{i:03}.jpg")
+        fname2 = os.path.join(output_dir, f"cam2_image_{i:03}.jpg")
+        req1 = cam1.capture_request()
+        req2 = cam2.capture_request()
+        req1.save("main", fname1)
+        req2.save("main", fname2)
+        req1.release()
+        req2.release()
+        print(f"Captured pair {i} at {time.time() - start_time:.2f}s")
+        captured_files.extend([fname1, fname2])
+        if i < num_snapshots:
+            time.sleep(interval)
+
+    cam1.stop()
+    cam2.stop()
+
+    drive_folder = f"timelapse_uploads/{folder_name}"
+    print(f"Uploading folder {output_dir} to Google Drive at {drive_folder} ...")
+    subprocess.run(["rclone", "copy", output_dir, f"gdrive:{drive_folder}"], check=True)
+
+    drive_link = f"https://drive.google.com/drive/folders/{folder_name}"
+
+    attachments = []
+    if captured_files:
+        attachments.append(captured_files[0])   # first cam1 image
+        if len(captured_files) > 1:
+            attachments.append(captured_files[1])  # first cam2 image
+        if len(captured_files) > 2:
+            attachments.append(captured_files[-2]) # last cam1 image
+            attachments.append(captured_files[-1]) # last cam2 image
+
+    email_body = (
+        f"Timelapse '{folder_name}' completed and uploaded to Google Drive.\n\n"
+        f"View folder here: {drive_link}\n\n"
+        f"Captured {num_snapshots} images from each camera every {interval_minutes} minutes for {duration_hours} hours.\n"
+        f"Folder path on Pi: {output_dir}"
+    )
+
+    send_email(f"Timelapse '{folder_name}' completed", email_body, attachments)
+
+if __name__ == '__main__':
+    main()
