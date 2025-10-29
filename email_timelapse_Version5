@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+
+import os
+import time
+import subprocess
+import smtplib
+from email.message import EmailMessage
+from datetime import datetime
+from picamera2 import Picamera2
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+import platform
+import sys
+import traceback
+import signal
+
+SENDER = "hodgkinsaaron@gmail.com"
+APP_PASSWORD = "ukze kdgg rmbe krbg"
+RECIPIENT = "aaron@martechresearch.com"
+
+def install_rclone():
+    try:
+        subprocess.run(["rclone", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("rclone is already installed.")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("rclone not found. Installing rclone for Raspberry Pi...")
+        # Detect architecture
+        machine = platform.machine()
+        if machine in ("armv7l", "armv6l"):
+            deb_url = "https://downloads.rclone.org/rclone-current-linux-arm.deb"
+        elif machine == "aarch64":
+            deb_url = "https://downloads.rclone.org/rclone-current-linux-arm64.deb"
+        else:
+            print(f"Unknown architecture '{machine}'. Defaulting to ARM64 deb.")
+            deb_url = "https://downloads.rclone.org/rclone-current-linux-arm64.deb"
+        subprocess.run(f"curl -Of {deb_url}", shell=True, check=True)
+        deb_file = deb_url.split('/')[-1]
+        subprocess.run(f"sudo dpkg -i {deb_file}", shell=True, check=True)
+        subprocess.run(f"rm {deb_file}", shell=True)
+        print("rclone installed successfully.")
+
+def configure_rclone():
+    try:
+        remotes = subprocess.check_output(["rclone", "listremotes"], stderr=subprocess.DEVNULL).decode().splitlines()
+    except Exception:
+        remotes = []
+    if "gdrive:" in remotes or "gdrive" in remotes:
+        print("rclone 'gdrive' remote already configured.")
+        return
+
+    print("\n--- rclone Google Drive setup ---")
+    print("No 'gdrive' remote found. Starting rclone config wizard.")
+    print("You will need to follow the prompts. For Google Drive, select 'drive' as the storage type.")
+    print("When prompted for client_id and client_secret, you can usually just press Enter.")
+    print("Name your remote: gdrive")
+    print("For scope, select full access (read/write).")
+    print("Follow the browser authorization steps as prompted.")
+    print("You only need to do this once.\n")
+    input("Press Enter to launch 'rclone config'... (in a new terminal window if using a desktop GUI)")
+    subprocess.run("rclone config", shell=True)
+    print("rclone configuration finished. Your Google Drive should now be accessible as 'gdrive:'.")
+
+def send_email(subject, body, attachments=[]):
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SENDER
+    msg["To"] = RECIPIENT
+    msg.set_content(body)
+    for filepath in attachments:
+        if not os.path.exists(filepath):
+            print(f"Warning: attachment {filepath} not found.")
+            continue
+        with open(filepath, "rb") as f:
+            data = f.read()
+            filename = os.path.basename(filepath)
+            maintype, subtype = ("image", "jpeg") if filename.lower().endswith(".jpg") else ("application", "octet-stream")
+            msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(SENDER, APP_PASSWORD)
+            smtp.send_message(msg)
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+def get_next_session_folder(base_path):
+    today = datetime.now().strftime("%Y-%m-%d")
+    existing = []
+    if os.path.exists(base_path):
+        for name in os.listdir(base_path):
+            if name.endswith("_" + today) and name[:3].isdigit():
+                existing.append(int(name[:3]))
+    next_num = max(existing) + 1 if existing else 1
+    folder_name = f"{next_num:03d}_{today}"
+    return os.path.join(base_path, folder_name), folder_name
+
+def get_highest_resolution(sensor_modes):
+    best = sensor_modes[0]['size']
+    for mode in sensor_modes:
+        if mode['size'][0] * mode['size'][1] > best[0] * best[1]:
+            best = mode['size']
+    return best
+
+def capture_with_timestamp(picam, filename):
+    try:
+        array = picam.capture_array()
+        image = Image.fromarray(array)
+        draw = ImageDraw.Draw(image)
+        try:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
+        except Exception:
+            font = ImageFont.load_default()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        text_size = draw.textsize(timestamp, font=font)
+        x = image.width - text_size[0] - 20
+        y = image.height - text_size[1] - 20
+        outline_range = 2
+        for ox in range(-outline_range, outline_range + 1):
+            for oy in range(-outline_range, outline_range + 1):
+                draw.text((x + ox, y + oy), timestamp, font=font, fill=(0, 0, 0))
+        draw.text((x, y), timestamp, font=font, fill=(255,255,255))
+        image.save(filename, "JPEG")
+    except Exception as e:
+        print(f"Error capturing or saving image with timestamp: {e}")
+        traceback.print_exc()
+
+def safe_start_camera(index):
+    try:
+        cam = Picamera2(index)
+        res = get_highest_resolution(cam.sensor_modes)
+        config = cam.create_still_configuration(main={"size": res}, controls={"AfMode": 2})
+        cam.configure(config)
+        cam.start()
+        time.sleep(2)
+        return cam, res
+    except Exception as e:
+        print(f"Failed to initialize camera {index}: {e}")
+        return None, None
+
+def safe_stop_camera(cam):
+    try:
+        if cam:
+            cam.stop()
+    except Exception as e:
+        print(f"Error stopping camera: {e}")
+
+def upload_folder_with_rclone(output_dir, drive_folder):
+    try:
+        subprocess.run(["rclone", "copy", output_dir, f"gdrive:{drive_folder}"], check=True)
+        print(f"Upload to Google Drive {drive_folder} completed.")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to upload folder to Google Drive: {e}")
+        return False
+
+def handle_exit(signum, frame):
+    print("\nScript interrupted. Stopping cameras and exiting.")
+    safe_stop_camera(main.cam1)
+    safe_stop_camera(main.cam2)
+    sys.exit(1)
+
+def main():
+    # Signal handling for graceful shutdown
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
+    main.cam1 = None
+    main.cam2 = None
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_path = script_dir
+
+    install_rclone()
+    configure_rclone()
+
+    try:
+        interval_minutes = float(input("Enter snapshot interval in minutes (e.g., 2): ").strip())
+        duration_hours = float(input("Enter total duration in hours (e.g., 1.5): ").strip())
+    except Exception:
+        print("Invalid number entered for interval or duration. Exiting.")
+        return
+    interval = interval_minutes * 60
+    duration = duration_hours * 3600
+
+    output_dir, folder_name = get_next_session_folder(base_path)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Could not create output directory: {e}")
+        return
+
+    print("Setting up cameras...")
+    main.cam1, res1 = safe_start_camera(0)
+    main.cam2, res2 = safe_start_camera(1)
+    if not main.cam1 and not main.cam2:
+        print("No cameras could be initialized. Exiting.")
+        return
+    if main.cam1 and not main.cam2:
+        print("Only Camera 1 initialized. Proceeding with single camera mode.")
+    if main.cam2 and not main.cam1:
+        print("Only Camera 2 initialized. Proceeding with single camera mode.")
+
+    num_snapshots = int(duration // interval)
+    print(f"Capturing {num_snapshots} images from initialized cameras every {interval_minutes} minutes...")
+
+    captured_files = []
+    start_time = time.time()
+    try:
+        for i in range(1, num_snapshots + 1):
+            if main.cam1:
+                fname1 = os.path.join(output_dir, f"cam1_image_{i:03}.jpg")
+                capture_with_timestamp(main.cam1, fname1)
+                captured_files.append(fname1)
+            if main.cam2:
+                fname2 = os.path.join(output_dir, f"cam2_image_{i:03}.jpg")
+                capture_with_timestamp(main.cam2, fname2)
+                captured_files.append(fname2)
+            print(f"Captured image(s) for pair {i} at {time.time() - start_time:.2f}s")
+            if i < num_snapshots:
+                time.sleep(interval)
+    except Exception as e:
+        print(f"Error during timelapse capture: {e}")
+
+    safe_stop_camera(main.cam1)
+    safe_stop_camera(main.cam2)
+
+    drive_folder = f"timelapse_uploads/{folder_name}"
+    print(f"Uploading folder {output_dir} to Google Drive at {drive_folder} ...")
+    upload_folder_with_rclone(output_dir, drive_folder)
+
+    # NOTE: The below link is an example path, not a direct Drive folder link.
+    drive_link = f"https://drive.google.com/drive/u/0/search?q=timelapse_uploads%2F{folder_name}"
+    attachments = []
+    cam1_imgs = [f for f in captured_files if "cam1_image" in f]
+    cam2_imgs = [f for f in captured_files if "cam2_image" in f]
+    if cam1_imgs:
+        attachments.append(cam1_imgs[0])
+    if cam2_imgs:
+        attachments.append(cam2_imgs[0])
+    if cam1_imgs and len(cam1_imgs) > 1:
+        attachments.append(cam1_imgs[-1])
+    if cam2_imgs and len(cam2_imgs) > 1:
+        attachments.append(cam2_imgs[-1])
+
+    email_body = (
+        f"Timelapse '{folder_name}' completed and uploaded to Google Drive.\n\n"
+        f"Navigate to your Drive and search for: timelapse_uploads/{folder_name}\n\n"
+        f"Captured {num_snapshots} images from each initialized camera every {interval_minutes} minutes for {duration_hours} hours.\n"
+        f"Folder path on Pi: {output_dir}"
+    )
+
+    send_email(f"Timelapse '{folder_name}' completed", email_body, attachments)
+
+if __name__ == '__main__':
+    main()
