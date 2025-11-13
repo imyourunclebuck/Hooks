@@ -71,6 +71,60 @@
             </div>
             <ol class="log-list" data-log></ol>
         </section>
+
+        <section class="youtube-live" aria-label="youtube broadcast">
+            <div>
+                <p class="eyebrow">Public broadcast</p>
+                <h2>Embedded stream + latest live feed</h2>
+                <p class="lede">
+                    Monitor @aaronhodgkins on YouTube without leaving the kiosk. The featured broadcast stays pinned on the
+                    left while the panel on the right always targets the latest live feed from the channel.
+                </p>
+            </div>
+            <div class="youtube-grid">
+                <article class="youtube-card">
+                    <div>
+                        <h3>Featured stream</h3>
+                        <p class="lede">Embed of the provided example stream for quick reference.</p>
+                    </div>
+                    <div class="ratio-frame">
+                        <iframe
+                            title="Featured YouTube stream"
+                            src="about:blank"
+                            data-featured-video
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowfullscreen
+                        ></iframe>
+                    </div>
+                    <a class="ghost" href="https://www.youtube.com/@aaronhodgkins" target="_blank" rel="noreferrer">
+                        Open channel
+                    </a>
+                </article>
+
+                <article class="youtube-card">
+                    <div class="live-feed-actions">
+                        <div>
+                            <h3>Latest live feed</h3>
+                            <p class="live-status" data-live-status>Awaiting stream handshake…</p>
+                        </div>
+                        <button class="ghost" type="button" data-refresh-live>Reload live feed</button>
+                    </div>
+                    <div class="ratio-frame">
+                        <iframe
+                            title="Latest live broadcast"
+                            src="about:blank"
+                            data-latest-live
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowfullscreen
+                        ></iframe>
+                    </div>
+                    <p class="lede small">
+                        Update the channel ID or featured video in <code>app.js</code> to point this relay at another YouTube
+                        destination.
+                    </p>
+                </article>
+            </div>
+        </section>
     </div>
 
     <script src="app.js" type="module"></script>

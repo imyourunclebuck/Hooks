@@ -97,6 +97,12 @@ const CAMERA_SYSTEMS = [
     },
 ];
 
+const YOUTUBE_INTEGRATION = {
+    channelHandle: '@aaronhodgkins',
+    featuredVideoId: '3BTijzaFmEY',
+    liveChannelId: '@aaronhodgkins',
+};
+
 const OFFLINE_PLACEHOLDER =
     'data:image/svg+xml,' +
     encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 338" fill="none">
@@ -116,6 +122,10 @@ const clockEl = document.querySelector('[data-clock]');
 const activeCountEl = document.querySelector('[data-active-count]');
 const clearLogBtn = document.querySelector('[data-clear-log]');
 const globalControlsEl = document.querySelector('.global-controls');
+const youtubeFeaturedFrame = document.querySelector('[data-featured-video]');
+const youtubeLiveFrame = document.querySelector('[data-latest-live]');
+const youtubeStatusEl = document.querySelector('[data-live-status]');
+const youtubeRefreshBtn = document.querySelector('[data-refresh-live]');
 
 function init() {
     renderSummary();
@@ -125,6 +135,7 @@ function init() {
     setInterval(updateClock, 1000);
     updateActiveCount();
     addLogEntry('system', 'Console ready. All camera profiles loaded.');
+    initYoutubeEmbeds();
 }
 
 function renderSummary() {
@@ -280,6 +291,49 @@ function bindEvents() {
         logEntries.splice(0);
         renderLog();
     });
+}
+
+function initYoutubeEmbeds() {
+    const featuredSrc = buildFeaturedSrc();
+    if (youtubeFeaturedFrame && featuredSrc) {
+        youtubeFeaturedFrame.src = featuredSrc;
+    }
+
+    const liveSrc = buildLiveSrc();
+    if (youtubeLiveFrame && liveSrc) {
+        youtubeLiveFrame.dataset.baseSrc = liveSrc;
+        youtubeLiveFrame.src = liveSrc;
+        updateYoutubeStatus(`Pulling latest broadcast from ${YOUTUBE_INTEGRATION.channelHandle}`);
+    }
+
+    if (youtubeRefreshBtn) {
+        youtubeRefreshBtn.addEventListener('click', () => {
+            if (!youtubeLiveFrame) return;
+            const base = youtubeLiveFrame.dataset.baseSrc || buildLiveSrc();
+            const separator = base.includes('?') ? '&' : '?';
+            youtubeLiveFrame.src = `${base}${separator}t=${Date.now()}`;
+            updateYoutubeStatus('Live feed reloaded');
+        });
+    }
+}
+
+function buildFeaturedSrc() {
+    if (!YOUTUBE_INTEGRATION.featuredVideoId) return '';
+    return `https://www.youtube.com/embed/${YOUTUBE_INTEGRATION.featuredVideoId}?rel=0&modestbranding=1`;
+}
+
+function buildLiveSrc() {
+    if (YOUTUBE_INTEGRATION.liveChannelId) {
+        return `https://www.youtube.com/embed/live_stream?channel=${encodeURIComponent(
+            YOUTUBE_INTEGRATION.liveChannelId
+        )}&autoplay=0&modestbranding=1`;
+    }
+    return buildFeaturedSrc();
+}
+
+function updateYoutubeStatus(text) {
+    if (!youtubeStatusEl) return;
+    youtubeStatusEl.textContent = `${text} · ${new Date().toLocaleTimeString()}`;
 }
 
 function handleCameraAction(cameraId, action, card) {
