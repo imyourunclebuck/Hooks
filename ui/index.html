@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Incubator Camera Command Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">Raspberry Pi Monitoring Suite</p>
+                <h1>Incubator Camera Command Console</h1>
+                <p class="lede">Monitor six CSI cameras, review system health, and trigger focus or snapshot routines from one streamlined dashboard.</p>
+            </div>
+            <div class="header-meta">
+                <div>
+                    <p class="eyebrow">Local Time</p>
+                    <p class="reading" data-clock>--:--:--</p>
+                </div>
+                <div>
+                    <p class="eyebrow">Active Streams</p>
+                    <p class="reading" data-active-count>0 / 0</p>
+                </div>
+            </div>
+        </header>
+
+        <section class="global-controls" aria-label="global controls">
+            <div class="control-group">
+                <p class="group-title">Quick Actions</p>
+                <div class="control-row">
+                    <button data-action="refresh" class="ghost">Refresh Streams</button>
+                    <button data-action="toggleGrid" class="ghost">Toggle Compact Grid</button>
+                    <button data-action="showOffline" class="ghost">Show Offline Cameras</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <p class="group-title">Safety Presets</p>
+                <div class="control-row">
+                    <label>
+                        <input type="checkbox" data-global-toggle="autofocus" checked />
+                        Autofocus enabled
+                    </label>
+                    <label>
+                        <input type="checkbox" data-global-toggle="hdr" checked />
+                        HDR compensation
+                    </label>
+                    <label>
+                        <input type="checkbox" data-global-toggle="overlays" checked />
+                        Overlay telemetry
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <section class="system-summary" aria-label="system summary" data-system-summary></section>
+
+        <section class="camera-grid" aria-label="camera feeds" data-camera-grid></section>
+
+        <section class="action-log" aria-label="activity log">
+            <div class="log-header">
+                <div>
+                    <p class="eyebrow">Action Log</p>
+                    <h2>Recent automation events</h2>
+                </div>
+                <button class="ghost" data-clear-log>Clear log</button>
+            </div>
+            <ol class="log-list" data-log></ol>
+        </section>
+    </div>
+
+    <script src="app.js" type="module"></script>
+</body>
+</html>
