@@ -31,3 +31,60 @@ archive/camera-stream.html  # Original single-stream proof of concept
 ## Notes
 - The snapshot buttons generate downloadable links that target the MJPEG/HTTP stream endpoints defined in `ui/app.js`. Depending on how authentication is handled on your network you may need to front these URLs with a proxy that exposes still-image endpoints.
 - Legacy experiments are preserved under `archive/` for reference but are no longer wired into the kiosk experience.
+
+## Running the webhook API on a Raspberry Pi
+Use the provided setup script to deploy and keep the API running on boot:
+
+1. Copy this repository to your Raspberry Pi or set `REPO_URL` to the Git URL you want to deploy.
+2. (Optional) Override the install location with `TARGET_DIR` (defaults to `/home/pi/Hooks`).
+3. Run the setup script (the service will run as user `pi` by default—override with `SERVICE_USER` if needed):
+   ```bash
+   REPO_URL=https://github.com/your-org/Hooks.git \
+   TARGET_DIR=/home/pi/Hooks \
+   BRANCH=main \
+   SERVICE_USER=pi \
+   bash scripts/setup-pi-api.sh
+   ```
+4. The script will install Node.js/npm (via `apt`), clone or update the repository, install dependencies, create a `.env` file with `PORT`, and register a `hooks-api` systemd service at `/etc/systemd/system/hooks-api.service` that starts on boot.
+5. Check service health with `sudo systemctl status hooks-api.service`.
+
+### Remote deployment helper (SSH)
+If you are deploying to a Raspberry Pi on your network, you can run the setup script remotely over SSH. Example (replace the host, username, and password/SSH key to match your Pi):
+
+```bash
+ssh pi5@192.168.1.118 \
+  "REPO_URL=https://github.com/your-org/Hooks.git TARGET_DIR=/home/pi5/Hooks BRANCH=main SERVICE_USER=pi5 bash -s" < scripts/setup-pi-api.sh
+```
+
+Once the script finishes, the `hooks-api` service should be running on the Pi. You can validate from your workstation with:
+
+```bash
+ssh pi5@192.168.1.118 "sudo systemctl status hooks-api.service --no-pager"
+```
+
+### Configure the API port
+The API reads its port from `.env`:
+```
+PORT=3000
+```
+Copy `.env.example` to `.env` and adjust `PORT` if needed. The systemd unit loads this file automatically.
+
+### Firewall and router access
+- On the Pi: allow inbound traffic to the API port (example with UFW): `sudo ufw allow 3000/tcp` (replace `3000` with your chosen port).
+- On your router: forward an external port to the Pi’s internal `PORT` and IP address. Reserve a static DHCP lease for the Pi so the mapping remains stable.
+- If exposing the API to the public internet, place it behind a reverse proxy with TLS and restrict allowed source IPs where possible.
+
+### Example API calls
+Assuming your Pi is reachable at `http://<pi-address>:3000`:
+
+Create a record via the webhook endpoint:
+```bash
+curl -X POST "http://<pi-address>:3000/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{"event":"create_user","data":{"name":"Ada","role":"operator"}}'
+```
+
+Fetch the accumulated data:
+```bash
+curl "http://<pi-address>:3000/data"
+```
