@@ -74,11 +74,11 @@
 
         <section class="network-discovery" aria-label="network discovery">
             <div>
-                <p class="eyebrow">Network camera discovery</p>
-                <h2>Onboard additional MJPEG streams</h2>
+                <p class="eyebrow">Network inventory</p>
+                <h2>List every responsive device on the subnet</h2>
                 <p class="lede">
-                    Probe a local subnet for Raspberry Pi / IP camera hosts that expose Picamera2 services, then drop a
-                    new stream tile straight into the dashboard without restarting the kiosk.
+                    Probe a local subnet for Raspberry Pi or IP camera hosts. The console now catalogs anything that
+                    replies so operators have a living roster of addresses without cluttering the grid.
                 </p>
             </div>
             <form class="discovery-form" data-discovery-form>
@@ -104,7 +104,7 @@
                 </div>
             </form>
             <p class="discovery-status" data-discovery-status>Idle – waiting for scan parameters.</p>
-            <div class="discovery-results" data-discovery-results></div>
+            <ul class="discovery-results" data-discovery-results></ul>
         </section>
 
         <section class="youtube-live" aria-label="youtube broadcast">
@@ -153,12 +153,60 @@
                             allowfullscreen
                         ></iframe>
                     </div>
-                    <p class="lede small">
-                        Update the channel ID or featured video in <code>app.js</code> to point this relay at another YouTube
-                        destination.
-                    </p>
+                    <div class="live-feed-config">
+                        <label>
+                            <span>Saved live sources</span>
+                            <select data-live-select>
+                                <option value="">Use configured default</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Custom video or URL</span>
+                            <input type="text" data-live-custom placeholder="Paste a YouTube link or ID" />
+                        </label>
+                        <div class="live-config-buttons">
+                            <button class="ghost" type="button" data-live-apply>Load selection</button>
+                            <button type="button" data-studio-sync>Use YouTube Studio session</button>
+                        </div>
+                        <p class="lede small">
+                            Need a different broadcast? Open <a href="https://studio.youtube.com/video/Eycpq4kAaGM/livestreaming" target="_blank" rel="noreferrer">YouTube Studio</a>
+                            to confirm the current live ID, then drop it above.
+                        </p>
+                    </div>
                 </article>
             </div>
+        </section>
+
+        <section class="remote-access" aria-label="remote raspberry pi access">
+            <div>
+                <p class="eyebrow">Remote Pi fleet</p>
+                <h2>Connect.raspberrypi.com quick access</h2>
+                <p class="lede">
+                    Launch the Raspberry Pi Connect portal with the provided credentials. The console attempts to submit
+                    the login form for you and keeps copy buttons handy for manual overrides.
+                </p>
+            </div>
+            <article class="remote-card">
+                <div class="credential-grid">
+                    <div class="credential-line">
+                        <span>Email</span>
+                        <code>hodgkinsaaron@gmail.com</code>
+                        <button type="button" class="ghost" data-copy-credential="email">Copy</button>
+                    </div>
+                    <div class="credential-line">
+                        <span>Password</span>
+                        <code>Ah899271!</code>
+                        <button type="button" class="ghost" data-copy-credential="password">Copy</button>
+                    </div>
+                </div>
+                <div class="remote-actions">
+                    <button type="button" data-remote-login>Auto-launch portal</button>
+                    <a class="ghost" href="https://connect.raspberrypi.com/devices" target="pi-remote-portal" rel="noreferrer">
+                        Open portal only
+                    </a>
+                </div>
+                <p class="small-text" data-remote-status>Ready to open Connect in a new tab.</p>
+            </article>
         </section>
     </div>
 

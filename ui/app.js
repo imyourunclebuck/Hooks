@@ -99,9 +99,36 @@ const CAMERA_SYSTEMS = [
 
 const YOUTUBE_INTEGRATION = {
     channelHandle: '@aaronhodgkins',
+    channelUrl: 'https://www.youtube.com/@aaronhodgkins',
     featuredVideoId: '3BTijzaFmEY',
     liveChannelId: '@aaronhodgkins',
+    studioLiveUrl: 'https://studio.youtube.com/video/Eycpq4kAaGM/livestreaming',
+    liveVideoFallbackId: 'Eycpq4kAaGM',
+    liveOptions: [
+        { label: 'Studio session (Eycpq4kAaGM)', videoId: 'Eycpq4kAaGM' },
+        { label: 'Example stream (3BTijzaFmEY)', videoId: '3BTijzaFmEY' },
+    ],
 };
+
+const REMOTE_PORTAL = {
+    loginUrl: 'https://connect.raspberrypi.com/signin',
+    portalUrl: 'https://connect.raspberrypi.com/devices',
+    email: 'hodgkinsaaron@gmail.com',
+    password: 'Ah899271!',
+};
+
+const SENSOR_FRAME = {
+    width: 4608,
+    height: 2592,
+};
+
+const RESOLUTION_PRESETS = [
+    { label: 'Native 16:9 (4608 × 2592)', value: '4608x2592' },
+    { label: 'UHD / 4K (3840 × 2160)', value: '3840x2160' },
+    { label: 'Quad HD (2560 × 1440)', value: '2560x1440' },
+    { label: 'Full HD (1920 × 1080)', value: '1920x1080' },
+    { label: 'HD ready (1280 × 720)', value: '1280x720' },
+];
 
 const PICAMERA_CONTROL_FIELDS = [
     {
@@ -128,6 +155,24 @@ const PICAMERA_CONTROL_FIELDS = [
             { label: 'Tungsten', value: 'tungsten' },
             { label: 'Fluorescent', value: 'fluorescent' },
         ],
+    },
+    {
+        key: 'resolutionPreset',
+        label: 'Output resolution',
+        type: 'select',
+        default: '1920x1080',
+        options: RESOLUTION_PRESETS,
+    },
+    {
+        key: 'zoomLevel',
+        label: 'Digital zoom',
+        type: 'range',
+        min: 1,
+        max: 4,
+        step: 0.1,
+        default: 1,
+        numeric: true,
+        unit: '×',
     },
     {
         key: 'iso',
@@ -216,6 +261,8 @@ const cameraState = {};
 const logEntries = [];
 let discoveryAbortController = null;
 let discoveryInProgress = false;
+let manualLiveVideoId = YOUTUBE_INTEGRATION.liveVideoFallbackId || '';
+const discoveredHosts = new Set();
 
 const gridEl = document.querySelector('[data-camera-grid]');
 const summaryEl = document.querySelector('[data-system-summary]');
@@ -228,16 +275,25 @@ const youtubeFeaturedFrame = document.querySelector('[data-featured-video]');
 const youtubeLiveFrame = document.querySelector('[data-latest-live]');
 const youtubeStatusEl = document.querySelector('[data-live-status]');
 const youtubeRefreshBtn = document.querySelector('[data-refresh-live]');
+const youtubeSelectEl = document.querySelector('[data-live-select]');
+const youtubeCustomInput = document.querySelector('[data-live-custom]');
+const youtubeApplyBtn = document.querySelector('[data-live-apply]');
+const youtubeStudioBtn = document.querySelector('[data-studio-sync]');
 const discoveryForm = document.querySelector('[data-discovery-form]');
 const discoveryStopBtn = document.querySelector('[data-discovery-stop]');
 const discoveryStatusEl = document.querySelector('[data-discovery-status]');
 const discoveryResultsEl = document.querySelector('[data-discovery-results]');
+const remoteLoginBtn = document.querySelector('[data-remote-login]');
+const remoteStatusEl = document.querySelector('[data-remote-status]');
+const remoteCredentialButtons = document.querySelectorAll('[data-copy-credential]');
 
 function init() {
     renderSummary();
     renderCameraGrid();
     bindEvents();
     bindDiscoveryEvents();
+    bindYoutubeConfigControls();
+    bindRemoteAccessControls();
     updateClock();
     setInterval(updateClock, 1000);
     updateActiveCount();
@@ -497,7 +553,179 @@ function bindDiscoveryEvents() {
         discoveryForm.addEventListener('submit', handleDiscoverySubmit);
     }
     discoveryStopBtn?.addEventListener('click', stopDiscoveryScan);
-    discoveryResultsEl?.addEventListener('click', handleDiscoveryResultClick);
+}
+
+function bindYoutubeConfigControls() {
+    populateLiveSelect();
+    youtubeApplyBtn?.addEventListener('click', () => {
+        const manualValue = youtubeCustomInput?.value?.trim();
+        if (manualValue) {
+            const candidate = extractVideoId(manualValue);
+            if (candidate) {
+                setManualLiveVideo(candidate, 'Custom live ID');
+            } else {
+                updateYoutubeStatus('Provide a valid YouTube video link or 11-character ID.');
+            }
+            return;
+        }
+        const preset = youtubeSelectEl?.value;
+        if (preset) {
+            setManualLiveVideo(preset, 'Saved live source');
+        } else {
+            setManualLiveVideo(YOUTUBE_INTEGRATION.liveVideoFallbackId || '', 'Configured default');
+        }
+    });
+
+    youtubeSelectEl?.addEventListener('change', (event) => {
+        const value = event.target.value;
+        if (!value) return;
+        setManualLiveVideo(value, 'Saved live source');
+        if (youtubeCustomInput) {
+            youtubeCustomInput.value = '';
+        }
+    });
+
+    youtubeStudioBtn?.addEventListener('click', () => {
+        const studioId = extractVideoId(YOUTUBE_INTEGRATION.studioLiveUrl);
+        if (studioId) {
+            setManualLiveVideo(studioId, 'YouTube Studio session');
+        }
+        window.open(YOUTUBE_INTEGRATION.studioLiveUrl, '_blank', 'noopener');
+    });
+}
+
+function populateLiveSelect() {
+    if (!youtubeSelectEl || !Array.isArray(YOUTUBE_INTEGRATION.liveOptions)) return;
+    YOUTUBE_INTEGRATION.liveOptions.forEach((option) => {
+        const opt = document.createElement('option');
+        opt.value = option.videoId;
+        opt.textContent = option.label;
+        youtubeSelectEl.appendChild(opt);
+    });
+    if (manualLiveVideoId) {
+        const existing = Array.from(youtubeSelectEl.options).some((option) => option.value === manualLiveVideoId);
+        if (existing) {
+            youtubeSelectEl.value = manualLiveVideoId;
+        }
+    }
+}
+
+function extractVideoId(input) {
+    if (!input) return '';
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+        return input;
+    }
+    try {
+        const url = new URL(input);
+        if (url.hostname.includes('youtu.be')) {
+            const id = url.pathname.replace('/', '').slice(0, 11);
+            return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : '';
+        }
+        if (url.searchParams.has('v')) {
+            const id = url.searchParams.get('v');
+            return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : '';
+        }
+        const liveMatch = url.pathname.match(/\/live\/([a-zA-Z0-9_-]{11})/);
+        if (liveMatch) {
+            return liveMatch[1];
+        }
+    } catch (error) {
+        // Ignore invalid URLs and fall through to empty string
+    }
+    return '';
+}
+
+function setManualLiveVideo(videoId, sourceLabel = 'Live feed') {
+    const resolvedId = extractVideoId(videoId) || YOUTUBE_INTEGRATION.liveVideoFallbackId || '';
+    manualLiveVideoId = resolvedId;
+    const src = buildLiveSrc();
+    if (youtubeLiveFrame && src) {
+        youtubeLiveFrame.dataset.baseSrc = src;
+        const separator = src.includes('?') ? '&' : '?';
+        youtubeLiveFrame.src = `${src}${separator}t=${Date.now()}`;
+    }
+    updateYoutubeStatus(`${sourceLabel} synced (${resolvedId || 'channel default'})`);
+}
+
+function bindRemoteAccessControls() {
+    remoteLoginBtn?.addEventListener('click', handleRemoteAutoLogin);
+    remoteCredentialButtons.forEach((btn) => {
+        btn.addEventListener('click', () => copyRemoteCredential(btn.dataset.copyCredential));
+    });
+}
+
+function handleRemoteAutoLogin() {
+    updateRemoteStatus('Opening Connect portal…');
+    const target = 'pi-remote-portal';
+    const portalWindow = window.open(REMOTE_PORTAL.portalUrl, target);
+    if (!portalWindow) {
+        updateRemoteStatus('Allow pop-ups to launch connect.raspberrypi.com automatically.', 'error');
+        return;
+    }
+    setTimeout(() => {
+        submitRemoteLoginForm(target);
+    }, 600);
+}
+
+function submitRemoteLoginForm(target) {
+    const form = document.createElement('form');
+    form.style.display = 'none';
+    form.method = 'POST';
+    form.target = target;
+    form.action = REMOTE_PORTAL.loginUrl;
+    form.appendChild(createHiddenInput('email', REMOTE_PORTAL.email));
+    form.appendChild(createHiddenInput('password', REMOTE_PORTAL.password));
+    document.body.appendChild(form);
+    form.submit();
+    updateRemoteStatus('Attempted automatic login — verify the new tab.');
+    setTimeout(() => form.remove(), 2000);
+}
+
+function createHiddenInput(name, value) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    return input;
+}
+
+async function copyRemoteCredential(kind) {
+    const value = REMOTE_PORTAL[kind];
+    if (!value) return;
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+        } else {
+            fallbackCopyToClipboard(value);
+        }
+        updateRemoteStatus(`${kind === 'password' ? 'Password' : 'Email'} copied to clipboard.`, 'success');
+    } catch (error) {
+        fallbackCopyToClipboard(value);
+        updateRemoteStatus('Clipboard blocked — value highlighted for manual copy.', 'error');
+    }
+}
+
+function fallbackCopyToClipboard(value) {
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+function updateRemoteStatus(message, tone = 'info') {
+    if (!remoteStatusEl) return;
+    remoteStatusEl.textContent = message;
+    const colorMap = {
+        info: 'var(--text-muted)',
+        error: 'var(--danger)',
+        success: 'var(--success)',
+    };
+    remoteStatusEl.style.color = colorMap[tone] || colorMap.info;
 }
 
 function initYoutubeEmbeds() {
@@ -530,6 +758,10 @@ function buildFeaturedSrc() {
 }
 
 function buildLiveSrc() {
+    const explicitVideoId = manualLiveVideoId || YOUTUBE_INTEGRATION.liveVideoFallbackId;
+    if (explicitVideoId) {
+        return `https://www.youtube.com/embed/${explicitVideoId}?autoplay=0&modestbranding=1`;
+    }
     if (YOUTUBE_INTEGRATION.liveChannelId) {
         return `https://www.youtube.com/embed/live_stream?channel=${encodeURIComponent(
             YOUTUBE_INTEGRATION.liveChannelId
@@ -711,7 +943,39 @@ function buildPicameraPayload(values) {
             Denoise: values.denoise,
         },
     };
+    const resolution = parseResolutionPreset(values.resolutionPreset);
+    if (resolution) {
+        payload.streamConfig = {
+            main: { size: resolution },
+        };
+    }
+    const crop = buildScalerCrop(values.zoomLevel);
+    if (crop) {
+        payload.controls.ScalerCrop = crop;
+    }
     return pruneEmpty(payload);
+}
+
+function parseResolutionPreset(value) {
+    if (!value) return null;
+    const [width, height] = String(value)
+        .split('x')
+        .map((part) => Number(part));
+    if (!width || !height) return null;
+    return { width, height };
+}
+
+function buildScalerCrop(zoomLevel = 1) {
+    const level = Number(zoomLevel);
+    if (!level || level <= 1) {
+        return null;
+    }
+    const safeLevel = Math.min(Math.max(level, 1), 4);
+    const cropWidth = Math.round(SENSOR_FRAME.width / safeLevel);
+    const cropHeight = Math.round(SENSOR_FRAME.height / safeLevel);
+    const offsetX = Math.round((SENSOR_FRAME.width - cropWidth) / 2);
+    const offsetY = Math.round((SENSOR_FRAME.height - cropHeight) / 2);
+    return [offsetX, offsetY, cropWidth, cropHeight];
 }
 
 async function applyPicameraTuning(cameraId, card) {
@@ -809,7 +1073,7 @@ function handleDiscoverySubmit(event) {
 
 async function scanNetwork({ subnet, start, end, port }) {
     if (!discoveryStatusEl) return;
-    discoveryResultsEl.innerHTML = '';
+    clearDiscoveryResults();
     discoveryStatusEl.textContent = `Scanning ${subnet}.${start}-${end} on port ${port}…`;
     discoveryInProgress = true;
     discoveryAbortController = new AbortController();
@@ -896,104 +1160,32 @@ function mergeSignals(...signals) {
 
 function renderDiscoveryResult(result) {
     if (!discoveryResultsEl) return;
-    const card = document.createElement('article');
-    card.className = 'discovery-card';
-    card.dataset.discoveryCard = '';
-    card.dataset.ip = result.ip;
-    card.dataset.port = result.port;
+    if (discoveredHosts.has(result.ip)) return;
+    discoveredHosts.add(result.ip);
     const info = result.info || {};
-    const labelValue = info.defaultLabel || `Camera ${result.ip}`;
-    const pathValue = info.defaultPath || '/camera1';
-    card.innerHTML = `
-        <div>
-            <h3>${info.name || 'Possible Picamera2 host'}</h3>
-            <p class="small-text">${result.ip}:${result.port}</p>
-            <p class="lede small">${
-                info.description || 'Responded to discovery probe. Provide a stream path to add it to the grid.'
-            }</p>
+    const item = document.createElement('li');
+    item.className = 'discovery-chip';
+    const badge = [info.model, info.version, info.platform].filter(Boolean).join(' · ');
+    const description = info.description || info.hostname || 'Responded to discovery probe.';
+    item.innerHTML = `
+        <div class="device-line">
+            <div>
+                <strong>${info.name || info.hostname || `Host ${result.ip}`}</strong>
+                <span>${result.ip}:${result.port}</span>
+            </div>
+            ${badge ? `<span class="device-badge">${badge}</span>` : ''}
         </div>
-        <div class="discovery-add-form">
-            <label>
-                Stream label
-                <input type="text" data-label-input value="${labelValue}" />
-            </label>
-            <label>
-                Stream path
-                <input type="text" data-path-input value="${pathValue}" />
-            </label>
-            <button type="button" data-add-stream>Add to grid</button>
-        </div>
+        <p class="small-text">${description}</p>
     `;
-    discoveryResultsEl.appendChild(card);
+    discoveryResultsEl.appendChild(item);
+    addLogEntry('network', `Device ${result.ip} responded on port ${result.port}`);
 }
 
-function handleDiscoveryResultClick(event) {
-    const btn = event.target.closest('[data-add-stream]');
-    if (!btn) return;
-    const card = btn.closest('[data-discovery-card]');
-    if (!card) return;
-    const ip = card.dataset.ip;
-    const port = Number(card.dataset.port);
-    const labelInput = card.querySelector('[data-label-input]');
-    const pathInput = card.querySelector('[data-path-input]');
-    addDiscoveredCamera({
-        ip,
-        port,
-        label: (labelInput?.value || '').trim() || `Camera ${ip}`,
-        streamPath: (pathInput?.value || '').trim() || '/camera1',
-    });
-}
-
-function addDiscoveredCamera({ ip, port, label, streamPath }) {
-    const system = ensureDiscoverySystem();
-    const streamUrl = normalizeStreamPath(ip, streamPath, port);
-    system.cameras.push({
-        id: `discovery-${Date.now()}-${Math.floor(Math.random() * 999)}`,
-        label,
-        streamUrl,
-        sensor: 'CSI / MJPEG',
-        lens: 'External',
-        fps: 25,
-        resolution: '1080p',
-        spectrum: 'RGB',
-        autofocus: false,
-    });
-    refreshConsoleView();
-    addLogEntry('discovery', `Added ${label} (${ip}) to the grid.`);
-}
-
-function ensureDiscoverySystem() {
-    let system = CAMERA_SYSTEMS.find((entry) => entry.id === 'network_discovery');
-    if (!system) {
-        system = {
-            id: 'network_discovery',
-            name: 'Discovered IP cameras',
-            location: 'Dynamic pool',
-            ip: 'auto',
-            uptime: '--',
-            temperature: '--',
-            cameras: [],
-        };
-        CAMERA_SYSTEMS.push(system);
+function clearDiscoveryResults() {
+    discoveredHosts.clear();
+    if (discoveryResultsEl) {
+        discoveryResultsEl.innerHTML = '';
     }
-    return system;
-}
-
-function normalizeStreamPath(ip, path, port) {
-    if (!path) {
-        return `http://${ip}:${port}/camera1`;
-    }
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
-    const normalisedPath = path.startsWith('/') ? path : `/${path}`;
-    return `http://${ip}:${port}${normalisedPath}`;
-}
-
-function refreshConsoleView() {
-    renderSummary();
-    renderCameraGrid();
-    updateActiveCount();
 }
 
 init();
