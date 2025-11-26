@@ -14,6 +14,7 @@ ui/                 # Production-ready kiosk interface (index.html, styles.css, 
 archive/prototypes/ # Legacy HTML mockups that previously lived under "HTML FILes"
 archive/camera-stream.html  # Original single-stream proof of concept
 ```
+<img width="1280" height="4075" alt="image" src="https://github.com/user-attachments/assets/9e23bc46-488e-4c80-805f-9ea00697f9a1" />
 
 ## Camera fleet
 | System | Hostname | Location | Camera 1 | Camera 2 |
