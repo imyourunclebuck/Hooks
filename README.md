@@ -1,33 +1,24 @@
-# Raspberry Pi Incubator Camera Suite
+# Distributed MIPI-CSI Vision & Telemetry Pipeline
 
-A consolidated monitoring surface for six Raspberry Pi 5 CSI cameras. The interface is designed for a dedicated Pi-driven kiosk so you can supervise three incubators, trigger autofocus or snapshots, and keep a lightweight automation log without juggling several browser tabs.
+A consolidated, headless edge-computing surface for remote monitoring and telemetry orchestration. The interface is designed to supervise distributed incubation arrays, trigger asynchronous autofocus or snapshots, and maintain a centralized telemetry log.
 
-## Features
-- **Unified dashboard** – live tiles for every camera, chamber telemetry, and uptime at a glance.
-- **Actionable controls** – pause/resume individual streams, fire autofocus or focus sweeps, run immediate or scheduled snapshots.
-- **Global presets** – toggle overlays, HDR compensation, or autofocus behavior for the entire fleet.
-- **Operator log** – captures system events and manual actions for traceability.
+## System Architecture & Hardware Topology
 
-## Repository layout
-```
-ui/                 # Production-ready kiosk interface (index.html, styles.css, app.js)
-archive/prototypes/ # Legacy HTML mockups that previously lived under "HTML FILes"
-archive/camera-stream.html  # Original single-stream proof of concept
-```
+The Distributed MIPI-CSI Vision Pipeline operates on a headless, edge-computing architecture. To ensure maximum resource allocation to image processing and telemetry, all localized controller nodes (Raspberry Pi 5s) are deployed using a headless, minimal OS environment (Debian Stable Lite branch, pre-Trixie). Node orchestration, lifecycle management, and system updates are exclusively handled via localized SSH access.
 
-## Camera fleet
-| System | Hostname | Location | Camera 1 | Camera 2 |
-| --- | --- | --- | --- | --- |
-| Incubator Myrtle #1 | `pi5_cam_1_myrtle` | Bay A | `http://192.168.2.43:5000/Camera_1` | `http://192.168.2.43:5000/camera2` |
-| Incubator Myrtle #2 | `pi5_cam_2_myrtle` | Bay B | `http://192.168.2.158:5000/camera1` | `http://192.168.2.18:5000/camera2` |
-| Incubator Myrtle #3 | `pi5_cam_3_myrtle` | Bay C | `http://192.168.2.168:5000/camera1` | `http://192.168.2.168:5000/camera2` |
+### 1. Primary Optical Array (MIPI-CSI)
+Each edge node manages a dual-lane MIPI-CSI optical array utilizing phase-detection autofocus (PDAF) sensors. 
+* **Hardware:** 1x Pi Camera Module 3 NoIR & 1x Pi Camera Module 3 NoIR Wide (Sony IMX708).
+* **Driver Stack:** Synchronous hardware calls are routed through the `v4l2` backend via `libcamera` and orchestrated using discrete `picam2` Python scripts to prevent bus contention on the native CSI interface.
 
-## Getting started on a Raspberry Pi kiosk
-1. Copy the `ui/` directory to the Pi that drives your display (or clone this repository directly on that Pi).
-2. Open `ui/index.html` in Chromium or any modern browser. For a full-screen kiosk experience on Raspberry Pi OS, launch Chromium with `chromium-browser --kiosk /path/to/ui/index.html`.
-3. Update the stream URLs in `ui/app.js` if your camera endpoints change.
-4. Use the quick controls along the top of the page to refresh feeds, switch grid density, or toggle overlays. Each camera tile exposes buttons for start/stop, snapshot, autofocus, and a delayed snapshot timer.
+### 2. Auxiliary Ultra-Low-Light Sensor (UVC)
+An external ultra-low-light sensor (Arducam Nighthawk) is physically provisioned via the USB bus. 
+* **Integration Constraint:** Because this sensor relies on USB Video Class (UVC) protocols rather than the native MIPI-CSI interface, it cannot natively leverage the existing `picam2` execution loop. Future integration of this sensor into the concurrent stream will require developing an isolated, asynchronous V4L2/UVC polling thread to prevent I/O blocking against the primary IMX708 sensors.
 
-## Notes
-- The snapshot buttons generate downloadable links that target the MJPEG/HTTP stream endpoints defined in `ui/app.js`. Depending on how authentication is handled on your network you may need to front these URLs with a proxy that exposes still-image endpoints.
-- Legacy experiments are preserved under `archive/` for reference but are no longer wired into the kiosk experience.
+### 3. Out-of-Band Illumination Control Plane
+To adhere to strict power-draw tolerances on the primary Raspberry Pi 5 SoC, the environmental illumination system operates entirely out-of-band. 
+* **Hardware:** Dedicated lighting controllers are logically isolated from the primary vision nodes.
+* **Network Protocol:** Illumination telemetry and adjustments are handled via an independent, localized 802.11 network (SSID: `pico`), hosted autonomously by a Raspberry Pi Pico micro-controller. This ensures that peak power draw from the lighting arrays does not induce under-voltage throttling on the vision pipeline edge nodes.
+
+## Concurrent Streaming Backend (Golang) - WIP
+An experimental backend written in Go is included in `go-backend/` to handle asynchronous multiplexing of the MJPEG boundaries. This is designed to replace the legacy Python proxying for higher throughput but requires knowledge of Goroutines to extend.
