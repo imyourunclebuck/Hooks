@@ -9,7 +9,7 @@ from datetime import datetime
 from picamera2 import Picamera2
 
 SENDER = "hodgkinsaaron@gmail.com"
-APP_PASSWORD = "ukze kdgg rmbe krbg"
+APP_PASSWORD = "REDACTED"
 RECIPIENT = "aaron@martechresearch.com"
 
 def install_rclone():

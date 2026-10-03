@@ -1,51 +1,24 @@
-Incubator monitoring project.
-Camera’s reset to default settings when switching between picamera2, lib camera and other UIs.
+# Distributed MIPI-CSI Vision & Telemetry Pipeline
 
-    Using rpicam instead of libcamera now. Aug 4 2025
+A consolidated, headless edge-computing surface for remote monitoring and telemetry orchestration. The interface is designed to supervise distributed incubation arrays, trigger asynchronous autofocus or snapshots, and maintain a centralized telemetry log.
 
-I’m working on a project that involves 6 pi5s that each stream 2 CSI cameras ( 1 camera module 3 NoIR Wide and one camera module 3 Noir) 
+## System Architecture & Hardware Topology
 
-The purpose of this project is to capture photos at exact times dictated by the incubation periods of given samples, while also providing a live feed from inside an incubator to help maintain a steady environment.
+The Distributed MIPI-CSI Vision Pipeline operates on a headless, edge-computing architecture. To ensure maximum resource allocation to image processing and telemetry, all localized controller nodes (Raspberry Pi 5s) are deployed using a headless, minimal OS environment (Debian Stable Lite branch, pre-Trixie). Node orchestration, lifecycle management, and system updates are exclusively handled via localized SSH access.
 
-Initially, I used libcamera, running two terminal windows to provide a live feed. An automation process would then take screenshots and save the photos. This method of streaming worked, but it wasn’t ideal—it generated heat and significantly slowed down the Raspberry Pi 5. It was also cumbersome to stream from three incubators on one screen, as it required logging into Pi Connect and opening three separate browser windows.
+### 1. Primary Optical Array (MIPI-CSI)
+Each edge node manages a dual-lane MIPI-CSI optical array utilizing phase-detection autofocus (PDAF) sensors. 
+* **Hardware:** 1x Pi Camera Module 3 NoIR & 1x Pi Camera Module 3 NoIR Wide (Sony IMX708).
+* **Driver Stack:** Synchronous hardware calls are routed through the `v4l2` backend via `libcamera` and orchestrated using discrete `picam2` Python scripts to prevent bus contention on the native CSI interface.
 
-I then switched to Picamera2, streaming on port 5000. I created a basic HTML page with the IP addresses of all three Pis, which allowed me to stream to a browser on a fourth Pi connected to the display inside the lab. This setup works, but lacks camera controls. The settings revert to default—even when adjustments are made. For instance, using libcamera shows different settings than what is used during streaming. I attempted to include an autofocus command in the HTML, but it doesn’t appear to function correctly.
+### 2. Auxiliary Ultra-Low-Light Sensor (UVC)
+An external ultra-low-light sensor (Arducam Nighthawk) is physically provisioned via the USB bus. 
+* **Integration Constraint:** Because this sensor relies on USB Video Class (UVC) protocols rather than the native MIPI-CSI interface, it cannot natively leverage the existing `picam2` execution loop. Future integration of this sensor into the concurrent stream will require developing an isolated, asynchronous V4L2/UVC polling thread to prevent I/O blocking against the primary IMX708 sensors.
 
-I also tested another GUI (I can’t recall the repository name) that runs on port 8080. It allows adjustments via an interface, but those settings revert when switching to another method. Additionally, while it works, the streams cannot be merged into a single page like with the previous method, so displaying all six cameras live on one screen is not possible
+### 3. Out-of-Band Illumination Control Plane
+To adhere to strict power-draw tolerances on the primary Raspberry Pi 5 SoC, the environmental illumination system operates entirely out-of-band. 
+* **Hardware:** Dedicated lighting controllers are logically isolated from the primary vision nodes.
+* **Network Protocol:** Illumination telemetry and adjustments are handled via an independent, localized 802.11 network (SSID: `pico`), hosted autonomously by a Raspberry Pi Pico micro-controller. This ensures that peak power draw from the lighting arrays does not induce under-voltage throttling on the vision pipeline edge nodes.
 
-  Can anyone recommend a method to locally host these cameras live, with the ability to tailor the html to feature a snapshot button, as well as a timer for future snapshots and other tasks. But mostly importantly retain the setting for the cameras(autofocus, etc)?
-
-# Raspberry Pi Camera System Documentation
-
-## System Overview
-This repository contains configuration and access information for a multi-camera setup using Raspberry Pi 5 devices.
-
-## Camera Systems
-
-### Camera System 1 (Myrtle)
-- **Host**: pi5_cam_1_myrtle
-- **Login**: pi5@pi5
-- **Camera Endpoints**:
-  - Camera 1: `http://192.168.2.43:5000/Camera_1`
-  - Camera 2: `http://192.168.2.43:5000/camera2`
-
-### Camera System 2 (Myrtle)
-- **Host**: pi5_cam_2_myrtle
-- **Login**: pi5@pi5
-- **Camera Endpoints**:
-  - Camera 1: `http://192.168.2.158:5000/camera1`
-  - Camera 2: `http://192.168.2.18:5000/camera2`
-
-### Camera System 3 (Myrtle)
-- **Host**: pi5_cam_3_myrtle
-- **Login**: pi5@pi5
-- **Camera Endpoints**:
-  - Camera 1: `http://192.168.2.168:5000/camera1`
-  - Camera 2: `http://192.168.2.168:5000/camera2`
-
-## Usage
-1. Connect to the local network
-2. Use SSH to access each Pi using the provided login credentials
-3. Access camera feeds through the listed URLs
-=======s
->>>>>>> befd731caae458934106f94ab9a573e2ee17770b
+## Concurrent Streaming Backend (Golang) - WIP
+An experimental backend written in Go is included in `go-backend/` to handle asynchronous multiplexing of the MJPEG boundaries. This is designed to replace the legacy Python proxying for higher throughput but requires knowledge of Goroutines to extend.

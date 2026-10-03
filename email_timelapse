@@ -9,7 +9,7 @@ from picamera2 import Picamera2
 
 # Email credentials
 SENDER = "hodgkinsaaron@gmail.com"
-APP_PASSWORD = "ukze kdgg rmbe krbg"
+APP_PASSWORD = "REDACTED"
 RECIPIENT = "aaron@martechresearch.com"
 
 def send_email(subject, body, attachments=[]):
